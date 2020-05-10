@@ -572,18 +572,16 @@ void runCalculation(int size, int threads) {
     t1 = omp_get_wtime();
     omp_set_num_threads(threads);
     {
-		for (int i = 0; i < size; i++)
-			C[i] = 0;
-		#pragma omp parallel for
-		for (int i = 0; i < size; i++)
-			for (int j = 0; j < size; j++)
-				C[i] += A[i][j] * B[j];
+      for (int i = 0; i < size; i++)
+        C[i] = 0;
+      #pragma omp parallel for
+      for (int i = 0; i < size; i++)
+        for (int j = 0; j < size; j++)
+          C[i] += A[i][j] * B[j];
     }
     t2 = omp_get_wtime();
 
     double time = (double) (t2 - t1);
-
-	cout << time << endl;
 
     for (int i = 0; i < size; i++)
         delete[]A[i];
@@ -591,4 +589,297 @@ void runCalculation(int size, int threads) {
     delete[]B;
     delete[]C;
 }
+```
+
+> Pateikite dvi standartines MPI duomenų persiuntimo funkcijas. Aprašykite ir aptarkite jų argumentus. Pateikite duomenų persiuntimo su MPI pavyzdį.
+
+```cpp
+int MPI_Send(void *buf, int count, MPI_Datatype datatype, 
+  int dest, int tag, MPI_Comm comm);
+```
+* buf – buferio, kuriame laikomi siunčiami duomenys, pradžios adresas (rodyklė)
+* count – siunčiamų duomenų elementų kiekis (skaičius)
+* datatype – siunčiamų duomenų elementų tipas (MPI tipas)
+* dest – proceso, kuriam siunčiamas šis pranešimas (t.y. gavėjo), numeris (rank’as) komunikatoriuje comm
+* tag – šiam pranešimui programuotojo suteikiamas numeris (paprastai, kad butų galima šį pranešimą atskirti nuo kitų, bet jis (tag) nebūtinai turi būti unikalus, t.y. gali būti ir vienodas visiems siunčiamiems pranešimams)
+* comm – komunikatorius, kuriam priklauso abu procesai (ir siuntėjas, ir gavėjas).
+
+```cpp
+MPI_Recv(void *buf, int count, MPI_Datatype datatype,
+ int source, int tag, MPI_Comm comm, MPI_Status *status);
+```
+* buf – buferio, į kurį bus patalpinti atsiusti duomenys, pradžios adresas (rodyklė)
+* count – siunčiamų duomenų elementų kiekis (skaičius)
+* datatype – siunčiamų duomenų elementų tipas (MPI tipas)
+* source – proceso, iš kurio turi būti gautas šis pranešimas (t.y. siuntėjo), numeris (rank’as) komunikatoriuje comm
+* tag – šiam pranešimui programuotojo suteikiamas numeris (paprastai, kad butų galima šį pranešimą atskirti nuo kitų, bet jis (tag) nebūtinai turi būti unikalus, t.y. gali būti ir vienodas visiems siunčiamiems pranešimams)
+* comm – komunikatorius, kuriam priklauso abu procesai (ir siuntėjas, ir gavėjas).
+* status – rodyklė į MPI duomenų struktūrą, į kurią bus įrašyti įvykusios duomenų gavimo operacijos duomenys (source, tag, message size)
+
+```cpp
+#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(int argc, char** argv) {
+  // Initialize the MPI environment
+  MPI_Init(NULL, NULL);
+  // Find out rank, size
+  int world_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  int world_size;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+  int number;
+  if (world_rank == 0) {
+    // If we are rank 0, set the number to -1 and send it to process 1
+    number = -1;
+    MPI_Send(
+      /* data         = */ &number, 
+      /* count        = */ 1, 
+      /* datatype     = */ MPI_INT, 
+      /* destination  = */ 1, 
+      /* tag          = */ 0, 
+      /* communicator = */ MPI_COMM_WORLD);
+  } else if (world_rank == 1) {
+    MPI_Recv(
+      /* data         = */ &number, 
+      /* count        = */ 1, 
+      /* datatype     = */ MPI_INT, 
+      /* source       = */ 0, 
+      /* tag          = */ 0, 
+      /* communicator = */ MPI_COMM_WORLD, 
+      /* status       = */ MPI_STATUS_IGNORE);
+    printf("Process 1 received number %d from process 0\n", number);
+  }
+  MPI_Finalize();
+}
+```
+---
+> Pateikite ir paaiškinkite deadlock susidarymo pavyzdį: 2 procesai apsikeičia pranešimais. Kaip jo išvengti?
+```cpp
+ if (rank == 0) {
+      MPI_Send(..., 1, tag, MPI_COMM_WORLD);
+      MPI_Recv(..., 1, tag, MPI_COMM_WORLD, &status);
+ } else if (rank == 1) {
+      MPI_Send(..., 0, tag, MPI_COMM_WORLD);
+      MPI_Recv(..., 0, tag, MPI_COMM_WORLD, &status);
+ }
+```
+Consider the following and assume that the MPI_Send does not complete until the corresponding MPI_Recv is posted and visa versa. The MPI_Send commands will never be completed and the program will deadlock.
+
+---
+> Pateikite MPI_Bcast() funkcijos realizaciją “point-to-point” duomenų siuntimo funkcijų pagalba.
+```cpp
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+
+void my_bcast(void* data, int count, MPI_Datatype datatype, int root,
+              MPI_Comm communicator) {
+  int world_rank;
+  MPI_Comm_rank(communicator, &world_rank);
+  int world_size;
+  MPI_Comm_size(communicator, &world_size);
+
+  if (world_rank == root) {
+    // If we are the root process, send our data to everyone
+    int i;
+    for (i = 0; i < world_size; i++) {
+      if (i != world_rank) {
+        MPI_Send(data, count, datatype, i, 0, communicator);
+      }
+    }
+  } else {
+    // If we are a receiver process, receive the data from the root
+    MPI_Recv(data, count, datatype, root, 0, communicator, MPI_STATUS_IGNORE);
+  }
+}
+
+int main(int argc, char** argv) {
+  MPI_Init(NULL, NULL);
+
+  int world_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+  int data;
+  if (world_rank == 0) {
+    data = 100;
+    printf("Process 0 broadcasting data %d\n", data);
+    my_bcast(&data, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  } else {
+    my_bcast(&data, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    printf("Process %d received data %d from root process\n", world_rank, data);
+  }
+
+  MPI_Finalize();
+}
+```
+---
+> Pateikite MPI_Gather() funkcijos realizaciją “point-to-point” duomenų siuntimo funkcijų pagalba.
+```cpp
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+
+int main(int argc, char** argv) {
+	MPI_Init(NULL, NULL);
+
+	int world_rank;
+	int root = 0;
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	printf("Process %d sending data %d\n", world_rank, world_rank);
+	MPI_Send(&world_rank, 1, MPI_INT, root, 0, MPI_COMM_WORLD);
+
+	if (world_rank == 0) {
+		int world_size;
+		MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+		
+		for (int i = 0; i < world_size; i++) {
+			int result;
+			MPI_Recv(&result, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			printf("Process 0 received data %d from %d process\n", result, i);
+		}
+	}
+
+	MPI_Finalize();
+}
+```
+---
+> Pateikite MPI_Reduce() funkcijos realizaciją “point-to-point” duomenų siuntimo funkcijų pagalba.
+```cpp
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+
+int main(int argc, char** argv) {
+	MPI_Init(NULL, NULL);
+
+	int world_rank;
+	int root = 0;
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	printf("Process %d sending data %d\n", world_rank, world_rank);
+	MPI_Send(&world_rank, 1, MPI_INT, root, 0, MPI_COMM_WORLD);
+
+	if (world_rank == 0) {
+		int world_size;
+		MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+		
+		int sum = 0;
+		for (int i = 0; i < world_size; i++) {
+			int result;
+			MPI_Recv(&result, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			printf("Process 0 received data %d from %d process\n", result, i);
+			sum += result;
+		}
+		
+		printf("final result is %d", sum);
+	}
+
+	MPI_Finalize();
+}
+```
+---
+> Pateikite algoritmą matricos ir vektoriaus sandaugos apskaičiavimui su MPI ir paaiškinkite jo vykdymą.
+
+```cpp
+#include <iostream>
+#include <cstdlib>
+#include "mpi.h"
+
+using namespace std;
+
+void multiply(int N) {
+    int rank, num_of_processes;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &num_of_processes);
+
+    MPI_Status Stat;
+
+    // To distribute marix rows between processes
+    int aver_num_rows = N / num_of_processes;
+    int extra = N % num_of_processes; // liekana, jei nesidalina po lygiai
+    // compute number of rows for each process
+    int num_rows = (rank < extra) ? aver_num_rows + 1 : aver_num_rows;
+    double **A; // matrix
+
+    if (rank == 0) { // Master process creates and disributes matrix A between processes
+        A = new double *[N]; // allocate N rows
+
+        for (int i = 0; i < N; i++)  // allocate N elements for i-th row
+            A[i] = new double[N];
+
+        for (int i = 0; i < N; i++) // initialize matix - assign values to elements
+            for (int j = 0; j < N; j++)
+                A[i][j] = rand() % 10;
+
+
+        int offset = num_rows;
+
+        for (int dest = 1; dest < num_of_processes; dest++) {
+            int dest_num_rows = (dest < extra) ? aver_num_rows + 1 : aver_num_rows;
+            for (int i = 0; i < dest_num_rows; i++) {
+                MPI_Send(&A[offset][0], N, MPI_DOUBLE, dest, 100, MPI_COMM_WORLD);
+                offset++;
+            }
+        }
+    } else // other processes receive corresponding rows of matrix A
+    {
+        A = new double *[num_rows]; // allocate num_rows rows
+
+        for (int i = 0; i < num_rows; i++)  // allocate N elements for i-th row
+            A[i] = new double[N];
+
+        for (int i = 0; i < num_rows; i++)
+            MPI_Recv(&A[i][0], N, MPI_DOUBLE, 0, 100, MPI_COMM_WORLD, &Stat);
+    }
+
+    double *y; // result vector
+    if (rank == 0)
+        y = new double[N]; // allocate vector with N elements
+    else
+        y = new double[num_rows]; // allocate vector with num_rows elements
+
+    // 1-st algorithm: multiplication by rows
+	for (int i = 0; i < num_rows; i++)
+		y[i] = 0;
+
+	for (int i = 0; i < num_rows; i++)
+		for (int j = 0; j < N; j++)
+			y[i] += A[i][j];
+
+    if (rank != 0) // All other processes send its part of result vector y[]
+        MPI_Send(y, num_rows, MPI_DOUBLE, 0, 200, MPI_COMM_WORLD);
+    else { // process 0 receives all parts of result vector y[]
+        int offset = num_rows;
+
+        for (int dest = 1; dest < num_of_processes; dest++) {
+            int dest_num_rows = (dest < extra) ? aver_num_rows + 1 : aver_num_rows;
+            MPI_Recv(&y[offset], dest_num_rows, MPI_DOUBLE, dest, 200, MPI_COMM_WORLD, &Stat);
+            offset = offset + dest_num_rows;
+        }
+    }
+
+    // free memory
+    if (rank == 0)
+        for (int i = 0; i < N; i++)
+            delete[] A[i]; // deallocate N elements for i-th row
+    else
+        for (int i = 0; i < num_rows; i++)
+            delete[] A[i]; // deallocate N elements for i-th row
+
+    delete[] A;
+
+    delete[] y; // deallocate vector y with N elements
+}
+
+int main(int argc, char *argv[]) {
+    MPI_Init(&argc, &argv);
+
+    multiply(1000);
+	
+    MPI_Finalize();
+    return 0;
+}
+
 ```
