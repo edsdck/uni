@@ -1,10 +1,3 @@
----
-tags: [VGTU]
-title: Lygiagretusis programavimas
-created: '2020-05-09T07:59:24.612Z'
-modified: '2020-05-09T10:36:32.510Z'
----
-
 # Lygiagretusis programavimas
 
 > Gijų programavimas. Pateikite ir pademonstruokite gijų programavimo pagrindinius principus. Kaip kuriamos gijos? Kaip jos sąveikauja? Kokie kintamieji yra bendri, o kokie lokalus? Kaip perduoti duomenis gijai? Pateikti kodo pavyzdį.
@@ -430,4 +423,172 @@ int main( int argc, char* argv[] )
   return 0;
 }
 
+```
+---
+> OpenMP užduočių vykdymo sinchronizavimo konstrukcijos. Pateikite OpenMP užduočių vykdymo sinchronizavimo konstrukcijas ir paaiškinkite jų veikimą pavyzdžių pagalba.
+1. `#pragma omp barrier`
+
+Kai gija pasiekia šią direktyvą, ji sustoja ir laukia, kol visos kitos šios lygiagrečiosios srities gijos pasieks šį barjerą.
+
+OpenMP pats įstato barjerus užduočių paskirstymo (for, sections, single) konstrukcijų pabaigoje, jei nenurodytas argumentas nowait.
+```cpp
+void work1(int k) {
+  // large amount of work
+}
+void work2(int k) {
+  // large amount of work that must all happen after work1 is finished
+}
+
+int main() {
+  int n=1000000;
+  #pragma omp parallel private(i) shared(n) {
+    #pragma omp for
+    for (i=0; i<n; i++)
+      work1(i);
+
+    #pragma omp barrier
+    #pragma omp for
+    for (i=0; i<n; i++)
+      work2(i);
+  }
+
+  return 0;
+}
+```
+2. `#pragma omp critical`
+
+Kritinės sekcijos struktūrinis blokas vienu metu gali būti vykdomas tik vienos gijos.
+
+```cpp
+#include <iostream>
+#include <omp.h>
+
+using namespace std;
+
+int main()
+{
+  int x = 0;
+  cout << "Initial x = " << x << endl;
+
+  #pragma omp parallel num_threads(4)
+  {
+    #pragma omp critical 
+    for (int i=0; i < 1000; i++)
+      x = x + 1;
+
+  } 
+
+  cout << "Final x = " << x << endl;
+}
+```
+3. `#pragma omp atomic`
+
+Jei reikia tik išvengti “race condition” vienam kintamajam.
+```cpp
+#pragma omp parallel
+{
+  int mytid = omp_get_thread_num();
+  double tmp = some_function(mytid);
+  #pragma omp critical
+  sum += tmp;
+}
+```
+
+4. `#pragma omp master`
+
+Direktyva nurodo, kad toliau sekantis struktūrinis blokas yra vykdomas tik pagrindinės gijos (master thread), o visos kitos tos grupės gijos tą bloką praleidžia.
+
+```cpp
+#pragma omp parallel
+{
+  int id = omp_get_thread_num();
+  some_work(id);
+  #pragma omp master
+  {
+    some_work_master();
+  }
+}
+```
+---
+> Pagrindinės OpenMP bibliotekos funkcijos. Paaiškinkite funkcionalumą ir pateikite taikymo pavyzdžius.
+
+```cpp
+omp_set_num_threads(int num_threads)
+```
+Sets the number of threads that will be used in the next parallel region.
+
+```cpp
+omp_get_num_threads()
+```
+Returns the number of threads that are currently in the team executing the parallel region from which it is called.
+
+```cpp
+omp_get_thread_num(void)
+```
+Returns the thread number of the thread, within the team, making this call. This number will be between 0 and OMP_GET_NUM_THREADS-1. The master thread of the team is thread 0.
+```cpp
+omp_get_wtime()
+
+double start = omp_get_wtime();
+// some work
+double end = omp_get_wtime();
+cout << “Darbas uztruko “ << (end - start) << “sekundziu“ << endl;
+```
+Provides a portable wall clock timing routine.
+
+[Likusios funkcijos](https://computing.llnl.gov/tutorials/openMP/#RunTimeLibrary)
+
+---
+> Pateikite OpenMP kodą matricos ir vektoriaus sandaugos apskaičiavimui ir paaiškinkite jo vykdymą.
+
+```cpp
+#include <iostream>
+#include <omp.h>
+
+using namespace std;
+
+void runCalculation(int size, int threads);
+
+int main() {
+    runCalculation(2000, 8);
+}
+
+void runCalculation(int size, int threads) {
+    double *B = new double[size];
+    double *C = new double[size];
+    double **A = new double *[size];
+
+    for (int i = 0; i < size; i++)
+        A[i] = new double[size];
+
+    for (int i = 0; i < size; i++)
+        for (int j = 0; j < size; j++)
+            A[i][j] = 300 + i + i * j;
+    for (int j = 0; j < size; j++)
+        B[j] = 50 + 3 * j;
+
+    double t1, t2;
+
+    t1 = omp_get_wtime();
+    omp_set_num_threads(threads);
+    {
+		for (int i = 0; i < size; i++)
+			C[i] = 0;
+		#pragma omp parallel for
+		for (int i = 0; i < size; i++)
+			for (int j = 0; j < size; j++)
+				C[i] += A[i][j] * B[j];
+    }
+    t2 = omp_get_wtime();
+
+    double time = (double) (t2 - t1);
+
+	cout << time << endl;
+
+    for (int i = 0; i < size; i++)
+        delete[]A[i];
+    delete[]A;
+    delete[]B;
+    delete[]C;
+}
 ```
