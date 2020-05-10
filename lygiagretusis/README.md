@@ -883,3 +883,221 @@ int main(int argc, char *argv[]) {
 }
 
 ```
+---
+> Pateikite CUDA kodą dviejų skaičių sumos apskaičiavimui.
+```cpp
+#include  <stdio.h>
+
+// kernel to add two integers
+__global__ void add(int *a, int *b, int *c) {
+
+       *c = *a + *b;
+}
+
+int main(void) {
+  
+   int a, b, c; // host (CPU) copies of a, b, c
+
+   int *d_a, *d_b, *d_c; // device (GPU) copies of a, b, c
+
+   int size = sizeof(int);
+
+   // Allocate space for device copies of a, b, c
+   cudaMalloc((void **)&d_a, size);
+   cudaMalloc((void **)&d_b, size);
+   cudaMalloc((void **)&d_c, size);
+
+   // Setup input values
+   a = 2;
+   b = 7;
+
+   // Copy inputs to device
+   cudaMemcpy(d_a, &a, size, cudaMemcpyHostToDevice);
+   cudaMemcpy(d_b, &b, size, cudaMemcpyHostToDevice);
+   
+   // Launch add() kernel on GPU
+   add<<<1,1>>>(d_a, d_b, d_c);
+
+   // Copy result back to host
+   cudaMemcpy(&c, d_c, size, cudaMemcpyDeviceToHost);
+
+   printf("c = %d\n", c);
+
+   // Cleanup
+   cudaFree(d_a); cudaFree(d_b); cudaFree(d_c);
+   
+   return 0;
+}
+
+```
+---
+> Pateikite CUDA kodą dviejų vektoriaus sumos apskaičiavimui naudojant (tik blokus | tik gijas | ir blokus, ir gijas).
+
+1. `tik blokai`
+```cpp
+#include <stdio.h>
+
+// kernel to add two vectors using only blocks
+__global__ void add(int *a, int *b, int *c) {
+
+    c[blockIdx.x] = a[blockIdx.x] + b[blockIdx.x];
+}
+
+int main(void) {
+ 
+  int N = 4; // Number of blocks = size of vectors a[], b[], c[]
+  int *a;
+  int *b;
+  int *c;
+  int size = N*sizeof(int);
+
+  // Alloc space for host copies of a, b, c and setup input values
+  a = (int *)malloc(size);
+  for (int i=0; i<N; i++)
+    a[i] = 1;
+  b = (int *)malloc(size);
+  for (int i=0; i<N; i++)
+    b[i] = 2;
+  c = (int *)malloc(size);
+
+  int *d_a, *d_b, *d_c; // device copies of a, b, c
+
+  // Allocate space for device copies of a, b, c
+  cudaMalloc((void **)&d_a, size);
+  cudaMalloc((void **)&d_b, size);
+  cudaMalloc((void **)&d_c, size);
+
+  // Copy inputs to device
+  cudaMemcpy(d_a, a, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_b, b, size, cudaMemcpyHostToDevice);
+
+  // Launch add() kernel on GPU with N blocks
+  add<<<N,1>>>(d_a, d_b, d_c);
+  
+  // Copy result back to host
+  cudaMemcpy(c, d_c, size, cudaMemcpyDeviceToHost);
+  
+  // print results
+  for (int i=0; i<N; i++)
+    printf("c[%d] = %d\n", i, c[i]);
+  
+  // Cleanup
+  free(a); free(b); free(c);
+  cudaFree(d_a); cudaFree(d_b); cudaFree(d_c);
+
+  return 0;
+}
+```
+2. `tik gijos`
+```cpp
+#include <stdio.h>
+
+// kernel to add two vectors using only threads
+__global__ void add(int *a, int *b, int *c) {
+
+    c[threadIdx.x] = a[threadIdx.x] + b[threadIdx.x];
+}
+
+int main(void) {
+ 
+  int N = 4; // Number of blocks = size of vectors a[], b[], c[]
+  int *a;
+  int *b;
+  int *c;
+  int size = N*sizeof(int);
+
+  // Alloc space for host copies of a, b, c and setup input values
+  a = (int *)malloc(size);
+  for (int i=0; i<N; i++)
+    a[i] = 1;
+  b = (int *)malloc(size);
+  for (int i=0; i<N; i++)
+    b[i] = 2;
+  c = (int *)malloc(size);
+
+  int *d_a, *d_b, *d_c; // device copies of a, b, c
+
+  // Allocate space for device copies of a, b, c
+  cudaMalloc((void **)&d_a, size);
+  cudaMalloc((void **)&d_b, size);
+  cudaMalloc((void **)&d_c, size);
+
+  // Copy inputs to device
+  cudaMemcpy(d_a, a, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_b, b, size, cudaMemcpyHostToDevice);
+
+  // Launch add() kernel on GPU with N threads
+  add<<<1,N>>>(d_a, d_b, d_c);
+  
+  // Copy result back to host
+  cudaMemcpy(c, d_c, size, cudaMemcpyDeviceToHost);
+  
+  // print results
+  for (int i=0; i<N; i++)
+    printf("c[%d] = %d\n", i, c[i]);
+  
+  // Cleanup
+  free(a); free(b); free(c);
+  cudaFree(d_a); cudaFree(d_b); cudaFree(d_c);
+
+  return 0;
+}
+```
+3. `ir gijos, ir blokai`
+```cpp
+#include <stdio.h>
+
+// kernel to add two vectors using blocks and threads
+__global__ void add(int *a, int *b, int *c) {
+
+    int index = threadIdx.x + blockIdx.x * blockDim.x;
+    c[index] = a[index] + b[index];
+}
+
+int main(void) {
+ 
+  int N = 8; // Size of vectors a[], b[], c[]
+  int THREADS_PER_BLOCK = 2;
+  int NUMBER_OF_BLOCKS = N / THREADS_PER_BLOCK;
+  int *a;
+  int *b;
+  int *c;
+  int size = N*sizeof(int);
+
+  // Alloc space for host copies of a, b, c and setup input values
+  a = (int *)malloc(size);
+  for (int i=0; i<N; i++)
+    a[i] = 1;
+  b = (int *)malloc(size);
+  for (int i=0; i<N; i++)
+    b[i] = 2;
+  c = (int *)malloc(size);
+
+  int *d_a, *d_b, *d_c; // device copies of a, b, c
+
+  // Allocate space for device copies of a, b, c
+  cudaMalloc((void **)&d_a, size);
+  cudaMalloc((void **)&d_b, size);
+  cudaMalloc((void **)&d_c, size);
+
+  // Copy inputs to device
+  cudaMemcpy(d_a, a, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_b, b, size, cudaMemcpyHostToDevice);
+
+  // Launch add() kernel on GPU with parallel blocks and threads
+  add<<<NUMBER_OF_BLOCKS,THREADS_PER_BLOCK>>>(d_a, d_b, d_c);
+  
+  // Copy result back to host
+  cudaMemcpy(c, d_c, size, cudaMemcpyDeviceToHost);
+  
+  // print results
+  for (int i=0; i<N; i++)
+    printf("c[%d] = %d\n", i, c[i]);
+  
+  // Cleanup
+  free(a); free(b); free(c);
+  cudaFree(d_a); cudaFree(d_b); cudaFree(d_c);
+
+  return 0;
+}
+```
