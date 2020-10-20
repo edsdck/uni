@@ -170,4 +170,44 @@ Testuojant stengiamasi imituoti trikius tuo metu, kai jie gali būti operatyviai
 * Testavimu paremtas kūrimas (angl. Test driven development) – evoliucinis produkto kūrimas, kombinuojantis „test-first“ kūrimą (prieš rašant kodą, kuriami testai, kuriuos sėkmingai turi „praeiti“ kodas, išgaunamas iš testo refaktorizavimo/restruktūrizavimo būdu (išlaikant programos elgesio semantiką, pvz., vertinant „juodosios dėžės“ principu paremto tikrinimo požiūriu).
 * Testavimu paremto kūrimo tiesioginis tikslas - specifikavimas, o ne validavimas. Tai būdas mąstyti per reikalavimų prizmę, prieš rašant funkcinį kodą. Tai svarbi AGILE tiek reikalavimų, tiek programinės įrangos projektavimo priemonė. Egzistuoja požiūris, kad tai ir programavimo priemonė, kurios tikslas – parašyti „švarų“ veikiantį kodą.
 
+## 20. Trumpai apibūdinti “behavior-driven” testavimą. Kaip rašomi “behavior-driven” būdu kuriamų testų testavimo atvejai?
 
+BDD extends TDD by writing test cases in a natural language that non-programmers and domain experts are able to read. BDD features are usually defined in a GIVEN WHEN and THEN (GWT) format, which is a semi-structured way of writing down test cases.
+
+[Wiki](https://en.wikipedia.org/wiki/Behavior-driven_development)
+
+## 21. Agile testavimas. Apibūdinti ir išvardinti Agile testavimo principus.
+
+* Agile projektai nustato pirminius reikalavimus „user stories“ forma, „user stories“ prioritetizuojant „back-log“  ir nustatant priėmimo kriterijus jau projekto pradžioje;
+* coding and testing are part of one process; 
+* quick feedback from testing;
+* testing is not left until the end of development;
+* „whole command“ požiūris: everyone takes responsibility for testing tasks and everyone may test;
+* nespėjus ištestuoti einamojoje iteracijoje, testuojama sekančios iteracijos pradžioje arba testavimui skiriama atskira iteracija;
+
+## 22. Kuo skiriasi Agile testavimas nuo klasikinio (krioklio metodo atveju) testavimo? Ką nusako invertuota piramidė?
+
+In traditional Waterfall model, testing is a large effort and is left towards the end of development, whereas in Agile, testing is small but more frequent and happens throughout the development.
+
+## 23. Kas yra priėmimo kriterijai (acceptance criteria)  Agile testavimo atveju? Pateikti pavyzdžių.
+
+_skip_
+
+## 24. Testavimo politika – apibūdinti.
+
+Testavimo politika (organizacijos lygio dokumentas):
+* labai aukšto lygio dokumentas,
+* ką „testavimas“ reiškia konkrečioje organizacijoje,
+* kaip ir kuo matuojama testavimo sėkmė,
+* tai santykinai statinis dokumentas (keičiamas, tik jei organizacija iš esmės keičia kryptį),
+kuria IT padalinys.
+
+Testavimo politika atsako į klausimą, KODĖL testuojama ir pristato organizacijos mastu testavimo kryptį. Ją dažniausiai nustato testavimo vadovai ir verslo/dalykinės srities vieneto  vadovai, įsigyjantys/užsakantys kurti programinį produktą. Be testavimo misijos ir tikslų, testavimo politika taip pat aprašo tipinį naudotiną testavimo procesą, efektyvumo ir produktyvumo metrikas, testavimo proceso tobulinimo galimybes, taip pat kokią vertę teikia testavimas ir pan.
+
+## 25. Testavimo vertinimas. Testavimo metrikos, jų kategorijos pagal ISTQB
+
+[Testavimo vertinimas](https://www.softwaretestingmaterial.com/test-metrics/#ProductMetrics)
+
+## 29.
+
+43 skaidre
